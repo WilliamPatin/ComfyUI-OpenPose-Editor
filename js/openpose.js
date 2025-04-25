@@ -1,5 +1,5 @@
-import { app } from "/scripts/app.js";
-import { ComfyWidgets } from "/scripts/widgets.js";
+import { app } from "../../scripts/app.js";
+import { ComfyWidgets } from "../../scripts/widgets.js";
 import "./fabric.min.js";
 
 const connect_keypoints = [
@@ -87,23 +87,26 @@ class OpenPosePanel {
 		this.panel = panel;
         this.node = node;
 
-        const width = 900;
-        const height = 1000;
-        this.panel.style.width = `${width}px`;
-        this.panel.style.height = `${height}px`;
-        this.panel.style.left = `calc(50% - ${width/4}px)`
-        this.panel.style.top = `calc(50% - ${height/4}px)`
+        this.panel.style.overflow = 'hidden';
+        // this.panel.style.resize = 'both';
+        // this.panel.style.overflow = 'auto';
+
+        this.setPanelStyle();
 
 		const rootHtml = `
-<canvas class="openpose-editor-canvas" />
-<div class="canvas-drag-overlay" />
-<input bind:this={fileInput} class="openpose-file-input" type="file" accept=".json" />
-`;
+            <canvas class="openpose-editor-canvas" />
+            <div class="canvas-drag-overlay" />
+            <input bind:this={fileInput} class="openpose-file-input" type="file" accept=".json" />
+        `;
+
 		const container = this.panel.addHTML(rootHtml, "openpose-container");
+        container.style.overflow = "hidden";
         container.style.width = "100%";
         container.style.height = "100%";
         container.style.margin = "auto";
         container.style.display = "flex";
+        container.style.alignItems = "center";
+        container.style.justifyContent = "center";
 
         const dragOverlay = container.querySelector(".canvas-drag-overlay")
 		dragOverlay.style.pointerEvents = "none";
@@ -127,12 +130,12 @@ class OpenPosePanel {
         this.canvasWidth = 512;
         this.canvasHeight = 512;
 
-		this.canvasElem = container.querySelector(".openpose-editor-canvas")
-		this.canvasElem.width = this.canvasWidth
-		this.canvasElem.height = this.canvasHeight
-		this.canvasElem.style.margin = "0.25rem"
-		this.canvasElem.style.borderRadius = "0.25rem"
-		this.canvasElem.style.border = "0.5px solid"
+		this.canvasElem = container.querySelector(".openpose-editor-canvas");
+		this.canvasElem.width = this.canvasWidth;
+		this.canvasElem.height = this.canvasHeight;
+		this.canvasElem.style.margin = "0.25rem";
+		this.canvasElem.style.borderRadius = "0.25rem";
+		this.canvasElem.style.border = "0.5px solid";
 
 		this.canvas = this.initCanvas(this.canvasElem)
 
@@ -163,12 +166,14 @@ class OpenPosePanel {
 		this.widthInput = document.createElement("input")
 		this.widthInput.style.background = "#1c1c1c";
 		this.widthInput.style.color = "#aaa";
+		this.widthInput.setAttribute("value", this.canvasWidth);
 		this.widthInput.setAttribute("type", "number")
 		this.widthInput.setAttribute("min", "64")
 		this.widthInput.setAttribute("max", "4096")
 		this.widthInput.setAttribute("step", "64")
 		this.widthInput.setAttribute("type", "number")
 		this.widthInput.addEventListener("change", () => {
+            this.canvasWidth = this.widthInput.value;
 			this.resizeCanvas(+this.widthInput.value, +this.heightInput.value);
 			this.saveToNode();
 		})
@@ -181,11 +186,13 @@ class OpenPosePanel {
 		this.heightInput = document.createElement("input")
 		this.heightInput.style.background = "#1c1c1c";
 		this.heightInput.style.color = "#ccc";
+        this.heightInput.setAttribute("value", this.canvasHeight);
 		this.heightInput.setAttribute("type", "number")
 		this.heightInput.setAttribute("min", "64")
 		this.heightInput.setAttribute("max", "4096")
 		this.heightInput.setAttribute("step", "64")
 		this.heightInput.addEventListener("change", () => {
+            this.canvasHeight = this.heightInput.value;
 			this.resizeCanvas(+this.widthInput.value, +this.heightInput.value);
 			this.saveToNode();
 		})
@@ -209,13 +216,35 @@ class OpenPosePanel {
             this.setPose(DEFAULT_KEYPOINTS)
         }
 
-		const keyHandler = this.onKeyDown.bind(this);
+        // const resizeHandler = (entries) => {
+        //     clearTimeout(resizeTimeout); // Clear the previous timeout
 
+        //     resizeTimeout = setTimeout(() => {
+        //         for (let entry of entries) {
+        //             const el = entry.target;
+        //             const rect = el.getBoundingClientRect();
+
+        //             // Apply your resizing logic here
+        //             console.log(`Resized to: ${rect.width} x ${rect.height}`);
+        //         }
+        //     }, 100); // 100 ms debounce time
+        // }
+        // this.resizeOberserver = new ResizeObserver(resizeHandler);
+        // this.resizeOberserver.observe(this.panel);
+
+        const keyHandler = this.onKeyDown.bind(this);
 		document.addEventListener("keydown", keyHandler)
 		this.panel.onClose = () => {
-			document.removeEventListener("keydown", keyHandler)
+			document.removeEventListener("keydown", keyHandler);
+            console.log('removed resizeOserver')
+            // this.resizeObserver?.disconnect();
 		}
 	}
+
+    setPanelStyle(){
+        this.panel.style.transform = `translate(-50%,-50%)`;
+        this.panel.style.margin = `0px 0px`;
+    }
 
 	onKeyDown(e) {
 		if (e.key === "z" && e.ctrlKey) {
@@ -323,7 +352,7 @@ class OpenPosePanel {
             const chunk = keypoints.slice(i, i + 18);
             res.push(chunk);
         }
-
+console.log(res)
         for (const item of res){
             this.addPose(item)
             this.canvas.discardActiveObject();
@@ -340,23 +369,50 @@ class OpenPosePanel {
     }
 
     resizeCanvas(width, height){
-        let resolution = this.calcResolution(width, height)
 
-        this.canvasWidth = width;
-        this.canvasHeight = height;
+        if(width != null && height != null){
+            this.canvasWidth = width;
+            this.canvasHeight = height;
+            
+            this.widthInput.value = `${width}`
+            this.heightInput.value = `${height}`
+            
+            this.canvas.setWidth(width);
+            this.canvas.setHeight(height);
+        }
+        
+        const rectPanel = this.canvasElem.closest('.openpose-container').getBoundingClientRect();
 
-		this.widthInput.value = `${width}`
-		this.heightInput.value = `${height}`
+        if(rectPanel.width == 0 && rectPanel.height == 0){ //force reflow on panel creation
+            setTimeout(()=>{
+                this.resizeCanvas();
+            },100)
+            return;
+        }
 
-        this.canvas.setWidth(width);
-        this.canvas.setHeight(height);
-        this.canvasElem.style.width = resolution["width"] + "px"
-        this.canvasElem.style.height = resolution["height"] + "px"
-        this.canvasElem.nextElementSibling.style.width = resolution["width"] + "px"
-        this.canvasElem.nextElementSibling.style.height = resolution["height"] + "px"
-        this.canvasElem.parentElement.style.width = resolution["width"] + "px"
-        this.canvasElem.parentElement.style.height = resolution["height"] + "px"
-        this.canvasElem.parentElement.style.margin = "auto";
+        const rectPanelAspectRatio = rectPanel.width / rectPanel.height;
+        const canvasAspectRatio = this.canvasWidth / this.canvasHeight;
+
+        [this.canvasElem,this.canvasElem.nextElementSibling,this.canvasElem.parentElement].forEach(el => {
+
+            if(rectPanel.width < this.canvasWidth || rectPanel.height < this.canvasHeight){
+                let scale;
+                if (rectPanelAspectRatio > canvasAspectRatio) {
+                    // Container is wider than canvas
+                    scale = rectPanel.height / this.canvasHeight;
+                } else {
+                    // Container is taller than canvas
+                    scale = rectPanel.width / this.canvasWidth;
+                }
+    
+                el.style.width = `${this.canvasWidth * scale}px`;
+                el.style.height = `${this.canvasHeight * scale}px`;
+            } else {
+                el.style.width = `${this.canvasWidth}px`;
+                el.style.height = `${this.canvasHeight}px`;
+            }
+            
+        })
     }
 
     undo() {
@@ -538,8 +594,10 @@ class OpenPosePanel {
         this.canvas.getObjects("image").forEach((img) => {
             img.opacity = 0;
         })
+
         if (this.canvas.backgroundImage)
             this.canvas.backgroundImage.opacity = 0
+        
         this.canvas.discardActiveObject();
         this.canvas.renderAll()
 
@@ -548,8 +606,10 @@ class OpenPosePanel {
         this.canvas.getObjects("image").forEach((img) => {
             img.opacity = 1;
         })
+
         if (this.canvas.backgroundImage)
             this.canvas.backgroundImage.opacity = 0.5
+        
         this.canvas.renderAll()
 
         this.lockMode = false;
@@ -558,7 +618,7 @@ class OpenPosePanel {
     }
 
     async uploadCanvasAsFile() {
-		try {
+		try {                        
             const blob = await this.captureCanvasClean()
             const filename = `ComfyUI_OpenPose_${this.node.id}.png`;
 
@@ -578,6 +638,7 @@ class OpenPosePanel {
                 console.error(resp.status + " - " + resp.statusText)
 				alert(resp.status + " - " + resp.statusText);
 			}
+            
 		} catch (error) {
             console.error(error)
 			alert(error);
@@ -649,6 +710,8 @@ class OpenPosePanel {
     loadJSON(text) {
         const json = JSON.parse(text);
         if (json["width"] && json["height"]) {
+            this.canvasWidth = json["width"];
+            this.canvasHeight = json["height"];
             this.resizeCanvas(json["width"], json["height"])
         } else {
             return 'width, height is invalid';
@@ -665,11 +728,11 @@ class OpenPosePanel {
         }
         return null;
     }
+
 }
 
 app.registerExtension({
     name: "Nui.OpenPoseEditor",
-
 	async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name !== "Nui.OpenPoseEditor") {
             return
@@ -679,6 +742,52 @@ app.registerExtension({
         fabric.Object.prototype.cornerColor = '#108ce6';
         fabric.Object.prototype.borderColor = '#108ce6';
         fabric.Object.prototype.cornerSize = 10;
+
+        const makePanelDraggable = function(panelElement){
+            let isDragging = false;
+            let offsetX = 0;
+            let offsetY = 0;
+        
+            const header = panelElement.querySelector(".dialog-header") || panelElement;
+            header.style.userSelect = 'none';
+            header.style.cursor = "move";
+        
+            header.addEventListener("mousedown", (e) => {
+                isDragging = true;
+                document.body.style.userSelect = "none";
+            });
+        
+            window.addEventListener("mousemove", (e) => {
+                if (isDragging) {
+                    const rectPanel = panelElement.getBoundingClientRect();
+                    console.log(rectPanel.left - e.movementX)
+                    
+                    if( rectPanel.left < document.querySelector('.side-tool-bar-container').offsetWidth && e.movementX < 0 ){
+                        panelElement.style.left = `${rectPanel.width / 2}px)`;
+                    } else if( rectPanel.left + rectPanel.width > window.innerWidth && e.movementX > 0 ){
+                        panelElement.style.left = `${window.innerWidth - rectPanel.width}px)`;
+                    } else {
+                        offsetX -= e.movementX;
+                        panelElement.style.left = `calc( 50% - ${offsetX}px)`;
+                    }
+
+                    if( rectPanel.top < document.querySelector('.comfyui-menu').offsetHeight && e.movementY < 0 ){
+                        panelElement.style.top = `${rectPanel.height / 2}px)`;
+                    } else if( rectPanel.top + rectPanel.height > window.innerHeight && e.movementY > 0 ){
+                        panelElement.style.left = `${window.innerWidth - rectPanel.height}px)`;
+                    } else {
+                        offsetY -= e.movementY;
+                        panelElement.style.top = `calc( 50% - ${offsetY}px)`;
+                    }
+                    
+                }
+            });
+        
+            window.addEventListener("mouseup", () => {
+                isDragging = false;
+                document.body.style.userSelect = "";
+            });
+        }
 
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
@@ -695,7 +804,7 @@ app.registerExtension({
             this.imageWidget = this.widgets.find(w => w.name === "image");
             this.imageWidget.callback = this.showImage.bind(this);
             this.imageWidget.disabled = true
-            console.error(this);
+            // console.error(this);
 
             // Non-serialized widgets
             this.jsonWidget = this.addWidget("text", "", this.properties.savedPose, "savedPose");
@@ -710,9 +819,42 @@ app.registerExtension({
                 const panel = graphCanvas.createPanel("OpenPose Editor", { closable: true });
                 panel.node = this;
                 panel.classList.add("openpose-editor");
-
+                
                 this.openPosePanel = new OpenPosePanel(panel, this);
+                makePanelDraggable(panel,this.openPosePanel);
                 document.body.appendChild(this.openPosePanel.panel);
+
+                const resizer = document.createElement("div");
+                resizer.style.width = "10px";
+                resizer.style.height = "10px";
+                resizer.style.background = "#888";
+                resizer.style.position = "absolute";
+                resizer.style.right = "0";
+                resizer.style.bottom = "0";
+                resizer.style.cursor = "se-resize";
+                panel.appendChild(resizer);
+
+                // Add to document
+                document.body.appendChild(panel);
+
+                // Handle resizing
+                let isResizing = false;
+                resizer.addEventListener("mousedown", (e) => {
+                    e.preventDefault();
+                    isResizing = true;
+                });
+
+                document.addEventListener("mousemove", (e) => {
+                    if (!isResizing) return;
+                    const rect = panel.getBoundingClientRect();
+                    panel.style.width = `${e.clientX - rect.left}px`;
+                    panel.style.height = `${e.clientY - rect.top}px`;
+                });
+
+                document.addEventListener("mouseup", () => {
+                    isResizing = false;
+                    this.openPosePanel.resizeCanvas()
+                });
             });
             this.openWidget.serialize = false;
 
@@ -733,9 +875,9 @@ app.registerExtension({
                 subfolder = name.substring(0, folder_separator);
                 name = name.substring(folder_separator + 1);
             }
-            const img = await loadImageAsync(`/view?filename=${name}&type=input&subfolder=${subfolder}`);
+            const img = await loadImageAsync(`/view?filename=${name}&type=input&subfolder=${subfolder}&t=${Date.now()}`);
             this.imgs = [img];
-            this.setSizeForImage();
+            // this.setSizeForImage();
             app.graph.setDirtyCanvas(true);
         }
 
@@ -744,15 +886,15 @@ app.registerExtension({
             await this.showImage(name);
         }
 
-        const onPropertyChanged = nodeType.prototype.onPropertyChanged;
-        nodeType.prototype.onPropertyChanged = function(property, value) {
-            if (property === "savedPose") {
+        // Update savedPose text field on value change
+        const baseOnPropertyChanged = nodeType.prototype.onPropertyChanged;
+        nodeType.prototype.onPropertyChanged = function (property, value, prev) {
+            if (property === "savedPose" && this.jsonWidget) {
                 this.jsonWidget.value = value;
+            } else if (baseOnPropertyChanged) {
+                baseOnPropertyChanged.call(this, property, value, prev);
             }
-            else {
-                if(onPropertyChanged)
-                    onPropertyChanged.apply(this, arguments)
-            }
-        }
+        };
+
     }
 });

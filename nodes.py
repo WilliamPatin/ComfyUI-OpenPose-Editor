@@ -2,7 +2,6 @@ import os.path
 import folder_paths
 from nodes import LoadImage
 
-
 class OpenPoseEditor:
     @classmethod
     def INPUT_TYPES(s):
